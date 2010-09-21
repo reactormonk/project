@@ -3,34 +3,41 @@ module Project
   require 'project/workflow'
   require 'fileutils'
   require 'yaml'
-  
+
   class Loader
-    class << self
-      def config_path(path=nil)
-        path ? (@config_path = path) : @config_path
-      end
-    end
-    attr_reader :raw_config
-    
+    attr_reader :raw_config, :project, :workflow
+
     def initialize
       @template_path = File.join(ROOT, 'templates', 'example.yml')
     end
-    
+
     def load!
-      if File.exists?(self.class.config_path)
-        @raw_config = YAML.load_file(self.class.config_path)
-        
-        Project.load_from_hash(@raw_config[:projects]) unless @raw_config[:projects].nil?
-        Workflow.load_from_hash(@raw_config[:workflows]) unless @raw_config[:workflows].nil?
+      if File.exists?(PATH)
+        @raw_config = YAML.load_file(PATH)
+
+        @project = load_from_hash :project
+        @workflow = load_from_hash :workflow
       else
-        FileUtils.mkdir_p(File.dirname(self.class.config_path))
-        FileUtils.cp(@template_path, self.class.config_path)
-        
-        $stdout.puts "* No YAML configuration file found!",
-                     "+ #{self.class.config_path}",
-                     "* One has been created for you, please edit it to your liking and try again."
-        
-        Kernel.exit(1)
+        FileUtils.mkdir_p(File.dirname(PATH))
+        FileUtils.cp(@template_path, PATH)
+
+        raise NoConfigFound, <<-EOS
+* No YAML configuration file found!
++ #{PATH}
+* One has been created for you, please edit it to your liking and try again."
+EOS
+      end
+    end
+
+    def load_from_hash(type)
+      loader = proc {const_get(type.upcase).method(&:new)}
+      if config = @raw_config[type.to_s]
+        loader[config]
+      elsif config = @raw_config[type.to_sym]
+        warn "Using old Symbol style loader."
+        loader[config]
+      else
+        raise NoConfigFound, "* No key #{type} found. Please check sanity of your config file."
       end
     end
   end

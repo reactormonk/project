@@ -1,5 +1,26 @@
 #!/usr/bin/ruby
 require 'project'
+require 'trollop'
 
-runner = Project::Runner.new(ARGV[0])
-runner.run!
+parser = Trollop::Parser.new do
+  banner <<-EOS
+Open projects with ease.
+
+Usage:
+         project <name of project> # same as -p
+         project [options] <name of project>
+  EOS
+  opt :project, "Run target project", :type => String
+  opt :workflow, "Workflow to use", :default => "default"
+  opt :scrape, "Scrape folder recursive for projects. Supported: #{Project::Scraper::Scrapers.instance_methods.join(', ')}", :type => String
+  opt :create, "Create a new project with path of cwd", :default => false
+end
+
+opts = Trollop::with_standard_exception_handling parser do
+  opts = parser.parse
+  opts[:project] ||= ARGV[0]
+  raise Trollop::HelpNeeded unless opts[:project] || opts[:scrape]
+  opts
+end
+
+Project::Runner.new(opts).run!
