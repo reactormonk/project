@@ -2,6 +2,7 @@ require 'yaml'
 require 'tmpdir'
 require 'ostruct'
 require 'fileutils'
+require 'shellwords'
 $LOAD_PATH << File.join(File.dirname(__FILE__), '..', 'lib')
 require 'project'
 
@@ -26,9 +27,18 @@ shared :integration do
           config and File.open('config.yaml', 'w') {|file| file.write config.to_yaml}
           block.call if block
 
-          result.stdout = system(bin_path, '--config', 'config.yaml', *args)
+          result.stdout = run_command(bin_path, '--config', 'config.yaml', *args)
           File.exist?('config.yaml') and result.config = YAML::load_file('config.yaml')
         end
+      end
+      result
+    end
+
+    def run_command(*command)
+      io = IO.popen(Shellwords::shelljoin(command))
+      result = []
+      until io.none?
+        result << io.read
       end
       result
     end
