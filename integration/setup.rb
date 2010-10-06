@@ -2,9 +2,6 @@ require 'yaml'
 require 'tmpdir'
 require 'ostruct'
 require 'fileutils'
-require 'shellwords'
-$LOAD_PATH << File.join(File.dirname(__FILE__), '..', 'lib')
-require 'project'
 
 require 'ruby-debug'
 
@@ -12,6 +9,7 @@ shared :integration do
   class << self
     root = File.join(File.dirname(__FILE__), '..')
     bin_path = File.join(root, 'bin', 'project')
+    bin = ['ruby', '-I', File.join(root, 'lib'), '--', bin_path].join(' ')
     tmp = File.join('/tmp', 'project', 'integration')
 
     # Bit bulky of a method. Runs the bin_path in a tmpdir.
@@ -27,7 +25,7 @@ shared :integration do
           config and File.open('config.yaml', 'w') {|file| file.write config.to_yaml}
           block.call if block
 
-          result.stdout = run_command(bin_path, '--config', 'config.yaml', *args)
+          result.stdout = run_command(bin, '--config', 'config.yaml', *args)
           File.exist?('config.yaml') and result.config = YAML::load_file('config.yaml')
         end
       end
@@ -35,7 +33,7 @@ shared :integration do
     end
 
     def run_command(*command)
-      io = IO.popen(Shellwords::shelljoin(command))
+      io = IO.popen(command.join(' '))
       result = []
       until io.none?
         result << io.read
